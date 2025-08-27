@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Task, TaskCreate } from './types/Task';
+import { useStiggContext } from '@stigg/react-sdk';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-function App(): JSX.Element {
+function App() {
+  const { stigg } = useStiggContext();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  const descriptionCharLimit = stigg.getNumericEntitlement({
+    featureId: 'feature-description-char-limit',
+  });
 
   const fetchTasks = async (): Promise<void> => {
     try {
@@ -27,7 +32,6 @@ function App(): JSX.Element {
     e.preventDefault();
     if (!title.trim()) return;
 
-    setLoading(true);
     try {
       const taskData: TaskCreate = {
         title: title.trim(),
@@ -39,8 +43,6 @@ function App(): JSX.Element {
       setDescription('');
     } catch (error) {
       console.error('Error creating task:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -84,9 +86,18 @@ function App(): JSX.Element {
           placeholder="Task description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          maxLength={descriptionCharLimit.value ?? 10}
         />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Adding...' : 'Add Task'}
+        <div style={{ 
+          fontSize: '14px', 
+          textAlign: 'right', 
+          marginTop: '5px',
+          color: description.length >= (descriptionCharLimit.value ?? 10) ? 'red' : '#666'
+        }}>
+          {description.length}/{descriptionCharLimit.value ?? 10} characters
+        </div>
+        <button type="submit">
+          Add Task
         </button>
       </form>
 
