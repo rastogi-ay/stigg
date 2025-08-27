@@ -6,6 +6,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
 }
 
 * {
@@ -19,10 +20,52 @@ body {
 }
 
 .header {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
 }
 
+.header h1 {
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.dark-mode-toggle {
+  background: none;
+  border: 2px solid #007bff;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.dark-mode-toggle:hover {
+  background: #007bff;
+  transform: scale(1.1);
+}
+
+.delete-button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.delete-button:hover {
+  background: #c82333;
+}
+
+/* ------------ Tasks ------------ */
 .task-form {
   background: white;
   padding: 20px;
@@ -108,16 +151,130 @@ body {
   gap: 10px;
 }
 
-.delete-button {
-  background: #dc3545;
+/* ------------ Dark Mode ------------ */
+.container.dark {
   color: white;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
 }
 
-.delete-button:hover {
-  background: #c82333;
+.container.dark body {
+  background-color: #1a1a1a;
+}
+
+.container.dark .task-form {
+  background: #2d2d2d;
+  border: 1px solid #404040;
+}
+
+.container.dark .task-form input,
+.container.dark .task-form textarea {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  color: white;
+}
+
+.container.dark .task-form input::placeholder,
+.container.dark .task-form textarea::placeholder {
+  color: #aaa;
+}
+
+.container.dark .task-form button {
+  background: #0056b3;
+}
+
+.container.dark .task-form button:hover {
+  background: #004494;
+}
+
+.container.dark .task-list {
+  background: #2d2d2d;
+  border: 1px solid #404040;
+}
+
+.container.dark .task-item {
+  border-bottom: 1px solid #404040;
+}
+
+.container.dark .task-item:last-child {
+  border-bottom: none;
+}
+
+.container.dark .task-title {
+  color: white;
+}
+
+.container.dark .task-description {
+  color: #ccc;
+}
+
+.container.dark .dark-mode-toggle {
+  border-color: #0056b3;
+  color: white;
+}
+
+.container.dark .dark-mode-toggle:hover {
+  background: #0056b3;
+}
+
+/* ------------ Paywall Modal ------------ */
+.paywall-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.paywall-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 400px;
+  margin: 20px;
+  color: black;
+}
+
+.container.dark .paywall-modal {
+  background: #2d2d2d;
+  color: white;
+}
+
+.paywall-title {
+  color: #dc3545;
+  margin-top: 0;
+}
+
+.paywall-upgrade-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.paywall-upgrade-btn:hover {
+  background: #218838;
+}
+
+.paywall-close-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.paywall-close-btn:hover {
+  background: #5a6268;
 }
