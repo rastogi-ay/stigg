@@ -30,7 +30,6 @@ async def provision_hardcoded_customer():
         
         result = await stigg_client.provision_customer(provision_input)
         print(f"Customer provisioned: {result.provision_customer.customer.id}")
-        return result.provision_customer.customer
     except Exception as e:
         print(f"Error provisioning customer: {e}")
         return None
