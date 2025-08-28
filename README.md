@@ -45,6 +45,8 @@ REACT_APP_STIGG_CLIENT_API_KEY=your_client_api_key
 REACT_APP_CUSTOMER_ID=your_customer_id
 ```
 
+**Note that the CUSTOMER_ID must be the same in the frontend and the backend!**
+
 ### Installation & Running
 
 **Backend**:
