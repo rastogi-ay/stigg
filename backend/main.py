@@ -41,7 +41,7 @@ async def provision_hardcoded_customer():
         print(f"Error provisioning customer: {e}")
         return None
 
-# call the async provision customer route on app startup (no clean-up needed)
+# call the async provision customer route on app startup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await provision_hardcoded_customer()
@@ -77,13 +77,13 @@ async def create_task(task: TaskCreate):
     tasks_db.append(new_task)
     next_id += 1
     
-    # report usage to Stigg (add 1 to tasks created so far)
+    # report usage to Stigg (add 1 to tasks created so far for the hour)
     try:
         await stigg_client.report_usage(ReportUsageInput(
             **{
                 "value": 1,
                 "customerId": CUSTOMER_ID,
-                "featureId": "feature-task-limit",
+                "featureId": "feature-task-hourly-limit",
             }
         ))
     except Exception as e:

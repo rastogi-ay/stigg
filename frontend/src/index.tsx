@@ -9,7 +9,7 @@ const CUSTOMER_ID = process.env.REACT_APP_CUSTOMER_ID;
 
 if (!STIGG_CLIENT_API_KEY || !CUSTOMER_ID) {
   throw new Error("Missing environment variables: REACT_APP_STIGG_CLIENT_API_KEY, REACT_APP_CUSTOMER_ID");
-}
+};
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
