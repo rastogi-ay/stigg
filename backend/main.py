@@ -74,8 +74,6 @@ async def create_task(task: TaskCreate):
         completed=False,
         created_at=datetime.now()
     )
-    tasks_db.append(new_task)
-    next_id += 1
     
     # report usage to Stigg (add 1 to tasks created so far for the hour)
     try:
@@ -87,7 +85,7 @@ async def create_task(task: TaskCreate):
             }
         ))
     except Exception as e:
-        print(f"Error reporting usage: {e}")
+        raise HTTPException(status_code=500, detail=f"Error reporting usage: {e}")
     
     # report task creation event to Stigg for total task limit tracking
     try:
@@ -101,7 +99,10 @@ async def create_task(task: TaskCreate):
             }
         ))
     except Exception as e:
-        print(f"Error reporting task event: {e}")
+        raise HTTPException(status_code=500, detail=f"Error reporting task event: {e}")
+    
+    tasks_db.append(new_task)
+    next_id += 1
     
     return new_task
 
