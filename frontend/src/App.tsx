@@ -34,13 +34,10 @@ const TOTAL_TASK_LIMIT_FALLBACK: MeteredEntitlementFallback = {
 };
 
 function App() {
-  // Stigg-independent variables
+  const { stigg } = useStiggContext();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-
-  // Stigg-dependent variables
-  const { stigg } = useStiggContext();
   const [entitlements, setEntitlements] = useState<any>(null);
   const [darkModeEnabled, setDarkModeEnabled] = useState<boolean>(false);
   const [hourlyTaskCount, setHourlyTaskCount] = useState<number>(0);
