@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Task, TaskCreate } from './Task';
-import { useStiggContext } from '@stigg/react-sdk';
+import { 
+  BooleanEntitlementFallback,
+  MeteredEntitlementFallback,
+  NumericEntitlementFallback,
+  useStiggContext,
+} from '@stigg/react-sdk';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -12,50 +17,70 @@ const FEATURE_IDS = {
   TOTAL_TASK_LIMIT: "feature-task-total-limit-3",
 } as const;
 
-const DESCRIPTION_LIMIT_FALLBACK = 50;
-const DARK_MODE_FALLBACK = false;
-const HOURLY_TASK_LIMIT_FALLBACK = 5;
-const TOTAL_TASK_LIMIT_FALLBACK = 10;
+const DESCRIPTION_LIMIT_FALLBACK: NumericEntitlementFallback = {
+  hasAccess: true,
+  value: 50,
+};
+const DARK_MODE_FALLBACK: BooleanEntitlementFallback = {
+  hasAccess: true,
+};
+const HOURLY_TASK_LIMIT_FALLBACK: MeteredEntitlementFallback = {
+  hasAccess: true,
+  usageLimit: 5,
+};
+const TOTAL_TASK_LIMIT_FALLBACK: MeteredEntitlementFallback = {
+  hasAccess: true,
+  usageLimit: 10,
+};
 
 function App() {
-  const { stigg } = useStiggContext();
+  // Stigg-independent variables
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+
+  // Stigg-dependent variables
+  const { stigg } = useStiggContext();
+  const [entitlements, setEntitlements] = useState<any>(null);
   const [darkModeEnabled, setDarkModeEnabled] = useState<boolean>(false);
   const [hourlyTaskCount, setHourlyTaskCount] = useState<number>(0);
   const [totalTaskCount, setTotalTaskCount] = useState<number>(0);
   const [showPaywall, setShowPaywall] = useState<boolean>(false);
   const [paywallType, setPaywallType] = useState<'hourly' | 'total'>('hourly');
 
-  // ------------ Fetching feature information depending on plan subscription ------------
-  // 1. Character limit on task description
-  const descriptionMaxLength = 
-    stigg.getNumericEntitlement({ featureId: FEATURE_IDS.DESCRIPTION_LIMIT }).value ?? DESCRIPTION_LIMIT_FALLBACK;
-  // 2. Ability to toggle dark mode
-  const canUpdateDarkMode = 
-    stigg.getBooleanEntitlement({ featureId: FEATURE_IDS.DARK_MODE }).hasAccess ?? DARK_MODE_FALLBACK;
-  // 3. Hourly limit on created tasks
-  const stiggHourlyTaskLimit = stigg.getMeteredEntitlement({ featureId: FEATURE_IDS.HOURLY_TASK_LIMIT });
-  const hourlyTaskLimit = stiggHourlyTaskLimit.usageLimit ?? HOURLY_TASK_LIMIT_FALLBACK;
-  // 4. Limit on total number of created tasks
-  const stiggTotalTaskLimit = stigg.getMeteredEntitlement({ featureId: FEATURE_IDS.TOTAL_TASK_LIMIT });
-  const totalTaskLimit = stiggTotalTaskLimit.usageLimit ?? TOTAL_TASK_LIMIT_FALLBACK;
+  // fetch entitlements, meant to be used on App mount
+  const fetchEntitlements = useCallback(async () => {
+    await stigg.refresh();
 
-  useEffect(() => {
-    fetchTasks();
-    setHourlyTaskCount(stiggHourlyTaskLimit.currentUsage); // set the current hourly task count if user "logs out"
-    setTotalTaskCount(stiggTotalTaskLimit.currentUsage); // set the current total task count if user "logs out"
-  }, [stiggHourlyTaskLimit.currentUsage, stiggTotalTaskLimit.currentUsage]);
-
-  useEffect(() => {
-    if (darkModeEnabled) {
-      document.body.style.backgroundColor = '#1a1a1a';
-    } else {
-      document.body.style.backgroundColor = '#f5f5f5';
+    try {
+      const result = {
+        descriptionLimit: stigg.getNumericEntitlement({
+          featureId: FEATURE_IDS.DESCRIPTION_LIMIT,
+          options: { fallback: DESCRIPTION_LIMIT_FALLBACK }
+        }),
+        darkMode: stigg.getBooleanEntitlement({
+          featureId: FEATURE_IDS.DARK_MODE,
+          options: { fallback: DARK_MODE_FALLBACK }
+        }),
+        hourlyTaskLimit: stigg.getMeteredEntitlement({
+          featureId: FEATURE_IDS.HOURLY_TASK_LIMIT,
+          options: { fallback: HOURLY_TASK_LIMIT_FALLBACK }
+        }),
+        totalTaskLimit: stigg.getMeteredEntitlement({
+          featureId: FEATURE_IDS.TOTAL_TASK_LIMIT,
+          options: { fallback: TOTAL_TASK_LIMIT_FALLBACK }
+        }),
+      };
+      
+      setEntitlements(result);
+      setHourlyTaskCount(result.hourlyTaskLimit.currentUsage);
+      setTotalTaskCount(result.totalTaskLimit.currentUsage);
+    } catch (err) {
+      console.error('Failed to fetch entitlements:', err);
     }
-  }, [darkModeEnabled]);
+  }, [stigg]);
 
+  // fetch tasks, meant to be used on App mount
   const fetchTasks = async (): Promise<void> => {
     try {
       const response = await axios.get<Task[]>(`${API_BASE_URL}/tasks`);
@@ -65,35 +90,45 @@ function App() {
     }
   };
 
+  // create a task, and report relevant info to Stigg
   const createTask = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!title.trim()) return;
+    await stigg.refresh();
 
     // check if user has reached their hourly task limit; if so, show paywall
-    if (hourlyTaskCount >= hourlyTaskLimit) {
+    const hourlyTaskLimit = stigg.getMeteredEntitlement({
+      featureId: FEATURE_IDS.HOURLY_TASK_LIMIT,
+      options: { requestedUsage: 1, fallback: HOURLY_TASK_LIMIT_FALLBACK }
+    });
+    if (!hourlyTaskLimit.hasAccess) {
       setPaywallType('hourly');
       setShowPaywall(true);
       return;
     }
 
     // check if user has reached their total task limit; if so, show paywall
-    if (totalTaskCount >= totalTaskLimit) {
+    const totalTaskLimit = stigg.getMeteredEntitlement({
+      featureId: FEATURE_IDS.TOTAL_TASK_LIMIT,
+      options: { requestedUsage: 1, fallback: TOTAL_TASK_LIMIT_FALLBACK }
+    });
+    if (!totalTaskLimit.hasAccess) {
       setPaywallType('total');
       setShowPaywall(true);
       return;
     }
-
+  
     try {
       const taskData: TaskCreate = {
         title: title.trim(),
         description: description.trim()
       };
-      // store task in DB, and report to Stigg that a task was created (both usage and event)
+      // store task in DB, and report to Stigg that a task was created (both usage and raw event)
       const response = await axios.post<Task>(`${API_BASE_URL}/tasks`, taskData);
 
       setTasks([...tasks, response.data]);
-      setHourlyTaskCount(hourlyTaskCount + 1);
-      setTotalTaskCount(totalTaskCount + 1);
+      setHourlyTaskCount(prev => prev + 1);
+      setTotalTaskCount(prev => prev + 1);
       setTitle('');
       setDescription('');
     } catch (error) {
@@ -101,6 +136,7 @@ function App() {
     }
   };
 
+  // simple method for marking a task as complete / incomplete
   const toggleTask = async (taskId: number, completed: boolean): Promise<void> => {
     try {
       const response = await axios.put<Task>(`${API_BASE_URL}/tasks/${taskId}`, {
@@ -114,6 +150,7 @@ function App() {
     }
   };
 
+  // simple method for deleting a task (doesn't affect Stigg metrics)
   const deleteTask = async (taskId: number): Promise<void> => {
     try {
       await axios.delete(`${API_BASE_URL}/tasks/${taskId}`);
@@ -123,17 +160,37 @@ function App() {
     }
   };
 
+  // useEffect for initializng Stigg client, entitlements, and tasks
+  useEffect(() => {
+    const initialize = async () => {
+      await stigg.waitForInitialization();
+      fetchEntitlements();
+      fetchTasks();
+    };
+    
+    initialize();
+  }, [fetchEntitlements, stigg]);
+
+  useEffect(() => {
+    if (darkModeEnabled) {
+      document.body.style.backgroundColor = '#1a1a1a';
+    } else {
+      document.body.style.backgroundColor = '#f5f5f5';
+    }
+  }, [darkModeEnabled]);
+
   return (
     <div className={`container ${darkModeEnabled ? 'dark' : ''}`}>
       <div className="header">
         <h1>Simple Todo List</h1>
-        <button 
-          className="dark-mode-toggle"
-          onClick={() => setDarkModeEnabled(!darkModeEnabled)}
-          disabled={!canUpdateDarkMode} // button is disabled if user is not allowed to update dark mode
-        >
-          {darkModeEnabled ? '☀️' : '🌙'}
-        </button>
+        {entitlements?.darkMode?.hasAccess && (
+          <button 
+            className="dark-mode-toggle"
+            onClick={() => setDarkModeEnabled(!darkModeEnabled)}
+          >
+            {darkModeEnabled ? '☀️' : '🌙'}
+          </button>
+        )}
       </div>
 
       <form className="task-form" onSubmit={createTask}>
@@ -148,15 +205,15 @@ function App() {
           placeholder="Task description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          maxLength={descriptionMaxLength} // user input is limited by config. feature in Stigg
+          maxLength={entitlements?.descriptionLimit?.value}
         />
         <div style={{ 
           fontSize: '14px', 
           textAlign: 'right', 
           marginTop: '5px',
-          color: description.length >= (descriptionMaxLength) ? 'red' : '#666'
+          color: description.length >= (entitlements?.descriptionLimit?.value) ? 'red' : '#666'
         }}>
-          {description.length}/{descriptionMaxLength} characters
+          Description Length: {description.length}/{entitlements?.descriptionLimit?.value} characters
         </div>
         <div style={{ 
           fontSize: '14px', 
@@ -164,7 +221,10 @@ function App() {
           marginTop: '10px',
           color: '#666'
         }}>
-          Hourly Task Limit: {hourlyTaskCount}/{hourlyTaskLimit}
+          {entitlements?.hourlyTaskLimit
+            ? `Hourly Task Limit: ${hourlyTaskCount}/${entitlements.hourlyTaskLimit.usageLimit}`
+            : 'Hourly Task Limit: N/A'
+          }
         </div>
         <div style={{ 
           fontSize: '14px', 
@@ -172,7 +232,10 @@ function App() {
           marginTop: '5px',
           color: '#666'
         }}>
-          Total Task Limit: {totalTaskCount}/{totalTaskLimit}
+          {entitlements?.totalTaskLimit
+            ? `Total Task Limit: ${totalTaskCount}/${entitlements.totalTaskLimit.usageLimit}`
+            : 'Total Task Limit: N/A'
+          }
         </div>
         <button type="submit">
           Add Task
@@ -218,11 +281,18 @@ function App() {
             {paywallType === 'hourly' ? (
               <>
                 <h2 className="paywall-title">⏰ Hourly Limit Reached!</h2>
-                <p>You've created <strong>{hourlyTaskCount}/{hourlyTaskLimit}</strong> tasks this hour.</p>
+                <p>
+                  You've created <strong>
+                    {entitlements?.hourlyTaskLimit
+                      ? `${hourlyTaskCount}/${entitlements.hourlyTaskLimit.usageLimit}`
+                      : 'N/A'
+                    }
+                  </strong> tasks this hour.
+                </p>
                 <p>
                   Wait until <strong>
-                    {stiggHourlyTaskLimit.usagePeriodEnd 
-                      ? new Date(stiggHourlyTaskLimit.usagePeriodEnd).toLocaleTimeString() 
+                    {entitlements?.hourlyTaskLimit?.usagePeriodEnd
+                      ? new Date(entitlements.hourlyTaskLimit.usagePeriodEnd).toLocaleTimeString()
                       : 'next reset'
                     }
                   </strong> for a reset
@@ -231,7 +301,14 @@ function App() {
             ) : (
               <>
                 <h2 className="paywall-title">🚫 Total Limit Reached!</h2>
-                <p>You've created <strong>{totalTaskCount}/{totalTaskLimit}</strong> total tasks.</p>
+                <p>
+                  You've created <strong>
+                    {entitlements?.totalTaskLimit 
+                      ? `${totalTaskCount}/${entitlements.totalTaskLimit.usageLimit}` 
+                      : 'N/A'
+                    }
+                  </strong> total tasks.
+                </p>
                 <p>
                   <strong>This limit does not reset.</strong> You'll need to upgrade to create more tasks.
                 </p>
