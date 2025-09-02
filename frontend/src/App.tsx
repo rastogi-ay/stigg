@@ -46,7 +46,7 @@ function App() {
   const [hourlyTaskCount, setHourlyTaskCount] = useState<number>(0);
   const [totalTaskCount, setTotalTaskCount] = useState<number>(0);
   const [showPaywall, setShowPaywall] = useState<boolean>(false);
-  const [paywallType, setPaywallType] = useState<'hourly' | 'total'>('hourly');
+  const [paywallType, setPaywallType] = useState<'hourly' | 'total' | 'revoked'>('hourly');
 
   // fetch entitlements, meant to be used on App mount
   const fetchEntitlements = useCallback(async () => {
@@ -71,7 +71,7 @@ function App() {
           options: { fallback: TOTAL_TASK_LIMIT_FALLBACK }
         }),
       };
-      
+
       setEntitlements(result);
       setHourlyTaskCount(result.hourlyTaskLimit.currentUsage);
       setTotalTaskCount(result.totalTaskLimit.currentUsage);
@@ -96,34 +96,34 @@ function App() {
     if (!title.trim()) return;
     await stigg.refresh();
 
-    // check if user has reached their hourly task limit; if so, show paywall
+    // helper function to check entitlements and show paywall if needed
+    const checkEntitlementAccess = (entitlement: any, type: 'hourly' | 'total'): boolean => {
+      if (!entitlement.hasAccess) {
+        setPaywallType(entitlement.accessDeniedReason === 'Revoked' ? 'revoked' : type);
+        setShowPaywall(true);
+        return false;
+      }
+      return true;
+    };
+
+    // check entitlements
     const hourlyTaskLimit = stigg.getMeteredEntitlement({
       featureId: FEATURE_IDS.HOURLY_TASK_LIMIT,
       options: { requestedUsage: 1, fallback: HOURLY_TASK_LIMIT_FALLBACK }
     });
-    if (!hourlyTaskLimit.hasAccess) {
-      setPaywallType('hourly');
-      setShowPaywall(true);
-      return;
-    }
+    if (!checkEntitlementAccess(hourlyTaskLimit, 'hourly')) return;
 
-    // check if user has reached their total task limit; if so, show paywall
     const totalTaskLimit = stigg.getMeteredEntitlement({
       featureId: FEATURE_IDS.TOTAL_TASK_LIMIT,
       options: { requestedUsage: 1, fallback: TOTAL_TASK_LIMIT_FALLBACK }
     });
-    if (!totalTaskLimit.hasAccess) {
-      setPaywallType('total');
-      setShowPaywall(true);
-      return;
-    }
+    if (!checkEntitlementAccess(totalTaskLimit, 'total')) return;
   
     try {
       const taskData: TaskCreate = {
         title: title.trim(),
         description: description.trim()
       };
-      // store task in DB, and report to Stigg that a task was created (both usage and raw event)
       const response = await axios.post<Task>(`${API_BASE_URL}/tasks`, taskData);
 
       setTasks([...tasks, response.data]);
@@ -278,7 +278,17 @@ function App() {
       {showPaywall && (
         <div className="paywall-overlay">
           <div className="paywall-modal">
-            {paywallType === 'hourly' ? (
+            {paywallType === 'revoked' ? (
+              <>
+                <h2 className="paywall-title">🔒 Access Revoked</h2>
+                <p>
+                  Your access to this feature has been revoked.
+                </p>
+                <p>
+                  Please contact support or upgrade your plan to restore access.
+                </p>
+              </>
+            ) : paywallType === 'hourly' ? (
               <>
                 <h2 className="paywall-title">⏰ Hourly Limit Reached!</h2>
                 <p>
