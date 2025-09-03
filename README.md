@@ -69,9 +69,6 @@ The app will be available at `http://localhost:3000` with the backend running on
 
 ## What I'd Do With More Time
 
-- **User Authentication**: Multi-tenant support with proper user management
-- **Plan Management**: In-app plan selection and upgrade flows
-- **Advanced Paywalls**: More sophisticated upgrade journeys with pricing tables
 - **Database Integration**: Replace in-memory storage with PostgreSQL/MongoDB
-- **Testing Suite**: Unit, integration, and E2E tests
-- **Monitoring**: Logging, metrics, and alerting
+- **User Authentication**: Multi-tenant support with proper user management
+- **Better Real-Time Plan Enforcement**: Add code to automatically update feature access
