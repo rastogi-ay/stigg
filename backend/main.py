@@ -74,9 +74,11 @@ async def create_task(task: TaskCreate):
         completed=False,
         created_at=datetime.now()
     )
+    tasks_db.append(new_task)
+    next_id += 1
     
-    # report usage to Stigg (add 1 to tasks created so far for the hour)
     try:
+        # report usage to Stigg (add 1 to tasks created so far for the hour)
         await stigg_client.report_usage(ReportUsageInput(
             **{
                 "value": 1,
@@ -84,11 +86,8 @@ async def create_task(task: TaskCreate):
                 "featureId": "feature-task-hourly-limit",
             }
         ))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reporting usage: {e}")
-    
-    # report task creation event to Stigg for total task limit tracking
-    try:
+        
+        # report task creation event to Stigg for total task limit tracking
         await stigg_client.report_event(UsageEventsReportInput(
             **{
                 "usageEvents": [{
@@ -99,10 +98,10 @@ async def create_task(task: TaskCreate):
             }
         ))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reporting task event: {e}")
-    
-    tasks_db.append(new_task)
-    next_id += 1
+        # rollback DB changes if either Stigg call fails
+        tasks_db.pop()
+        next_id -= 1
+        raise HTTPException(status_code=500, detail=f"Error with Stigg operations: {e}")
     
     return new_task
 

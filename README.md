@@ -71,4 +71,4 @@ The app will be available at `http://localhost:3000` with the backend running on
 
 - **Database Integration**: Replace in-memory storage with PostgreSQL/MongoDB
 - **User Authentication**: Multi-tenant support with proper user management
-- **Better Real-Time Plan Enforcement**: Add code to automatically update feature access
+- **Improved Syncing Between Stigg & App**: Add code to correctly align Stigg information with app
