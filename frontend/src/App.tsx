@@ -44,6 +44,7 @@ function App() {
   const [totalTaskCount, setTotalTaskCount] = useState<number>(0);
   const [showPaywall, setShowPaywall] = useState<boolean>(false);
   const [paywallType, setPaywallType] = useState<'hourly' | 'total' | 'revoked'>('hourly');
+  const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
 
   // fetch entitlements, meant to be used on App mount
   const fetchEntitlements = useCallback(async () => {
@@ -116,6 +117,7 @@ function App() {
     });
     if (!checkEntitlementAccess(totalTaskLimit, 'total')) return;
   
+    setIsCreatingTask(true);
     try {
       const taskData: TaskCreate = {
         title: title.trim(),
@@ -130,6 +132,8 @@ function App() {
       setDescription('');
     } catch (error) {
       console.error('Error creating task:', error);
+    } finally {
+      setIsCreatingTask(false);
     }
   };
 
@@ -234,8 +238,8 @@ function App() {
             : 'Total Task Limit: N/A'
           }
         </div>
-        <button type="submit">
-          Add Task
+        <button type="submit" disabled={isCreatingTask}>
+          {isCreatingTask ? 'Adding...' : 'Add Task'}
         </button>
       </form>
 
